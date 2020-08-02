@@ -69,9 +69,11 @@ class DiaryPage(QWidget):#一页日记
         self.show()    
 
 class MyMainWindow(QMainWindow):
-    def __init__(self,on_page):
+    def __init__(self,on_page,diary_names):
         super().__init__()
-        self.on_page=on_page;
+        self.on_page=on_page
+        self.diary_names=diary_names
+        self.max_page_num=len(self.diary_names)
         self.initUI(on_page)
 
     def initUI(self,on_page):
@@ -84,27 +86,46 @@ class MyMainWindow(QMainWindow):
 
         self.btp=QPushButton('上一页',self)
         self.btp.clicked.connect(self.turn_to_last_page)
+        self.btp.setGeometry(0,0,100,50)
+
+        self.jumpinput=QLineEdit(self)
+        self.jumpinput.setGeometry(200,0,50,50)
+        
+        self.max_page_label=QLabel(self)
+        self.max_page_label.setText("/"+str(self.max_page_num))
+        self.max_page_label.setGeometry(260,0,50,40)
+
+        self.jumpbutton=QPushButton("确定跳转",self)
+        self.jumpbutton.clicked.connect(self.jump)
+        self.jumpbutton.setGeometry(300,0,100,50)
+    
         self.btn=QPushButton('下一页',self)
         self.btn.clicked.connect(self.turn_to_next_page)
-        self.btn.setGeometry(500,0,50,20)
+        self.btn.setGeometry(500,0,100,50)
     
+    def turn_to_page(self,page_num):
+        if (page_num>=self.max_page_num or page_num<0):
+            return
+        del self.diary_page
+        self.on_page=page_num
+        self.diary_page=DiaryPage(self,self.on_page)
+        self.diary_page.show()
+
+    def jump(self):
+        msg=self.jumpinput.text()
+        if (msg.isdigit()):
+            self.turn_to_page(int(msg))
+
     def turn_to_last_page(self):
-        if (self.on_page>0):
-            self.on_page=self.on_page-1
-            del self.diary_page
-            self.diary_page=DiaryPage(self,self.on_page)
-            self.diary_page.show()
+        self.turn_to_page(self.on_page-1)
+
     def turn_to_next_page(self):
-        if (self.on_page<len(diary_names)-1):
-            self.on_page=self.on_page+1
-            del self.diary_page
-            self.diary_page=DiaryPage(self,self.on_page)
-            self.diary_page.show()
+        self.turn_to_page(self.on_page+1)
     
 if __name__=='__main__':
     app=QApplication(sys.argv)
     (diary_names,current_page)=generate_data_index()
     on_page=current_page
-    win=MyMainWindow(on_page)
+    win=MyMainWindow(on_page,diary_names)
     win.show()
     sys.exit(app.exec_())
