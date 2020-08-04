@@ -73,8 +73,6 @@ for page_num in range (last_page,first_page-1,-1):
         diary_time=f.find_elements_by_css_selector(".info")[-1].text #发布时间
         print(diary_time)
         folder_title=make_title(diary_time)
-        if (folder_title!="20200707_0"):
-            continue
         os.makedirs("data/"+folder_title)
         with open("data/"+folder_title+"/"+folder_title+".txt","w",encoding="UTF-8") as openfile:
             openfile.write(content) #把文本写入txt
