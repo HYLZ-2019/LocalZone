@@ -4,6 +4,8 @@ import os
 import re
 import urllib.request
 import datetime
+import threading
+import time
 
 first_page=1
 last_page=100
@@ -20,6 +22,9 @@ def make_title(date_str):
         date=date_str[0:4]+date_str[5:7]+date_str[8:10]
     elif (date_str[0:2]=="昨天"):
         date_str=str(datetime.date.today()-datetime.timedelta(days=1))
+        date=date_str[0:4]+date_str[5:7]+date_str[8:10]
+    elif (date_str[0:2]=="前天"):
+        date_str=str(datetime.date.today()-datetime.timedelta(days=2))
         date=date_str[0:4]+date_str[5:7]+date_str[8:10]
     else:
         nums=re.split(r'年|月|日',date_str)
@@ -40,8 +45,23 @@ def make_title(date_str):
         day_count[date]+=1
     return (title)
 
+def check_day_count():
+    for d in os.listdir("data"):
+        date=d[0:8]
+        if (not date in day_count):
+            day_count[date]=1
+        else:
+            day_count[date]+=1
+
+def download_img(link,save_path):
+    try:
+        urllib.request.urlretrieve(link,save_path)
+    except:
+        pass
+
 #登录部分
 
+check_day_count()
 try:
     driver=webdriver.Chrome()
     #要安装chromedriver：https://www.jianshu.com/p/dc0336a0bf50
@@ -49,7 +69,7 @@ try:
     driver.set_window_size(1000,800)
     options=webdriver.ChromeOptions()
     options.add_argument('--ignore-certificate-errors')
-    driver.implicitly_wait(10) #最多等十秒加载
+    driver.implicitly_wait(1) #最多等十秒加载
     driver.get("http://i.qq.com")
     driver.switch_to.frame('login_frame')
     driver.find_element_by_xpath('/html/body/div[1]/div[4]/div[8]/div/a[1]').click() #点击头像登录进空间
@@ -63,58 +83,76 @@ driver.switch_to.frame(0)
 sleep(5)
 
 for page_num in range (last_page,first_page-1,-1):
-    driver.find_element_by_xpath("/html/body/div[1]/div[2]/div[3]/div/div[1]/div/div[3]/div[4]/div/p[2]/span/input").send_keys(str(page_num))
-    driver.find_element_by_xpath("/html/body/div[1]/div[2]/div[3]/div/div[1]/div/div[3]/div[4]/div/p[2]/span/button").click() #跳转到第page_num页
+    bottomnav=driver.find_element_by_class_name("mod_pagenav")
+    bottomnav.find_element_by_css_selector(".textinput").send_keys(str(page_num))
+    sleep(1)
+    bottomnav.find_element_by_css_selector(".bt_tx2").click() #跳转到第page_num页
     sleep(5)
+    base_time=time.time()
     feeds=driver.find_elements_by_class_name("feed")
-    #print(feeds)
     for f in reversed(feeds): #f是说说“整体”
-        content=f.find_element_by_css_selector(".content").text #文本内容
-        diary_time=f.find_elements_by_css_selector(".info")[-1].text #发布时间
-        print(diary_time)
-        folder_title=make_title(diary_time)
-        os.makedirs("data/"+folder_title)
-        with open("data/"+folder_title+"/"+folder_title+".txt","w",encoding="UTF-8") as openfile:
-            openfile.write(content) #把文本写入txt
         try:
-            #找找看有没有图片
-            im_cnt=0
-            images=f.find_element_by_xpath('./div[3]/div[3]/div[1]/div').find_elements_by_tag_name('a')
-            for im in images:
-                try:
-                    link=im.get_attribute('href')
-                    #print(link)
-                    urllib.request.urlretrieve(link,"data/"+folder_title+"/"+folder_title+"_"+str(im_cnt)+".jpg")
-                    im_cnt+=1
-                except:
-                    pass
-        except: pass
-        try:
-            #看看是不是转发
-            repost_box=f.find_element_by_css_selector("[class='md rt_content']")
-            print(repost_box)
-            os.makedirs("data/"+folder_title+"/repost")
-            with open("data/"+folder_title+"/repost/repost_text.txt","w",encoding="UTF-8") as txtfile:
-                author=repost_box.find_element_by_xpath('./div[1]/div[1]/a[1]')
-                author_name=author.text
-                print(author_name)
-                author_qq=author.get_attribute("profileuin")
-                print(author_qq)
-                original_text=repost_box.find_element_by_xpath('./div[1]/div[1]/pre').text
-                print(original_text)
-                repost_str=str(author_name)+"("+str(author_qq)+"):\n"+original_text
-                print(repost_str)
-                txtfile.write(repost_str)
+            content_area=f.find_element_by_css_selector(".content")
+            content=content_area.text #文本内容
+            links=content_area.find_elements_by_css_selector('.qz_311_url')
+            for link in links:
+                content=content.split("网页链接")
+                content=content[0]+"网页链接("+link.get_attribute('href')+")"+content[1]
+            
+            diary_time=f.find_elements_by_css_selector(".info")[-1].text #发布时间
+            print(diary_time)
+
+            folder_title=make_title(diary_time)
+            os.makedirs("data/"+folder_title)
+            with open("data/"+folder_title+"/"+folder_title+".txt","w",encoding="UTF-8") as openfile:
+                openfile.write(content) #把文本写入txt
+
             try:
-                #看看转发里有没有图
-                repost_pics=repost_box.find_elements_by_css_selector('[class="img-attachments-inner clearfix"]')[0].find_elements_by_tag_name('a')
-                repost_im_cnt=0
-                for pic in repost_pics:
+                #找找看有没有图片
+                im_cnt=0
+                images=f.find_element_by_xpath('./div[3]/div[3]/div[1]/div').find_elements_by_tag_name('a')
+                for im in images:
                     try:
-                        link=pic.get_attribute('href')
-                        urllib.request.urlretrieve(link,"data/"+folder_title+"/repost/"+str(repost_im_cnt)+".jpg")
-                        repost_im_cnt+=1
-                    except: pass
+                        link=im.get_attribute('href')
+                        #print(link)
+                        save_path="data/"+folder_title+"/"+folder_title+"_"+str(im_cnt)
+                        if (link[-3:]=="gif"):
+                            save_path+=".gif"
+                        else:
+                            save_path+=".jpg"
+                        download_img(link,save_path)
+                        threading._start_new_thread(download_img,(link,save_path))
+                        im_cnt+=1
+                    except:
+                        pass
+            except: pass
+            try:
+                #看看是不是转发
+                repost_box=f.find_element_by_css_selector("[class='md rt_content']")
+                os.makedirs("data/"+folder_title+"/repost")
+                with open("data/"+folder_title+"/repost/repost_text.txt","w",encoding="UTF-8") as txtfile:
+                    author=repost_box.find_element_by_xpath('./div[1]/div[1]/a[1]')
+                    author_name=author.text
+                    author_qq=author.get_attribute("profileuin")
+                    original_text=repost_box.find_element_by_xpath('./div[1]/div[1]/pre').text
+                    repost_str=str(author_name)+"("+str(author_qq)+"):\n"+original_text
+                    txtfile.write(repost_str)
+                try:
+                    #看看转发里有没有图
+                    repost_pics=repost_box.find_elements_by_css_selector('[class="img-attachments-inner clearfix"]')[0].find_elements_by_tag_name('a')
+                    repost_im_cnt=0
+                    for pic in repost_pics:
+                        try:
+                            link=pic.get_attribute('href')
+                            save_path="data/"+folder_title+"/repost/"+str(repost_im_cnt)
+                            if (link[-3:]=="gif"):
+                                save_path+=".gif"
+                            else:
+                                save_path+=".jpg"
+                            threading._start_new_thread(download_img,(link,save_path))
+                            repost_im_cnt+=1
+                        except: pass
+                except: pass
             except: pass
         except: pass
 
