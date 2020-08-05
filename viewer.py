@@ -48,12 +48,7 @@ class RepostPage(QWidget):#一页日记
         whole_layout=QVBoxLayout()
         self.setStyleSheet("background-color:#EEEEFF")
         self.setMaximumWidth(int(total_width*0.55))
-        '''
-        post_time=get_date(diary_names[on_page])
-        self.time_tag=QLabel(self)
-        self.time_tag.setText(post_time)
-        content_layout.addWidget(self.time_tag)
-        '''
+        
         self.text_box=QLabel(self)
         self.text_box.setText(self.text)
         self.text_box.setWordWrap(True)
@@ -155,7 +150,7 @@ class DiaryPage(QWidget):#一页日记
             self.text=txtfile.read()
         image_paths=[]
         for i in os.listdir("data/"+diary_names[on_page]):
-            if (i[-3]!='t'):
+            if (i[-3]!='t' and i[-4]=='.'):
                 image_paths.append("data/"+diary_names[on_page]+"/"+i)
         print(image_paths)
         whole_layout=QVBoxLayout()
@@ -258,7 +253,7 @@ class MyMainWindow(QMainWindow):
         self.jumpinput.setText(str(self.on_page))
         
         self.max_page_label=QLabel(self)
-        self.max_page_label.setText("/"+str(self.max_page_num))
+        self.max_page_label.setText("/"+str(self.max_page_num-1))
         self.max_page_label.setGeometry(260,0,50,40)
 
         self.jumpbutton=QPushButton("确定跳转",self)
